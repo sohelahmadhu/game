@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>DilliVerse 3D — Delhi Open World</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101820;font-family:system-ui,Segoe UI,sans-serif;color:#fff}
+#game{position:fixed;inset:0}canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none}
+.panel{background:#081827d9;border:1px solid #8deaff55;backdrop-filter:blur(10px);border-radius:14px;padding:10px 14px;box-shadow:0 8px 30px #0004}
+#brand{position:absolute;top:14px;left:14px;font-weight:1000;letter-spacing:.08em;font-size:20px}#brand span{color:#52e3ff}
+#stats{position:absolute;top:14px;right:14px;display:flex;gap:8px;font-weight:800;font-size:13px}
+#mission{position:absolute;top:72px;left:14px;max-width:310px;line-height:1.35}
+#mission b{color:#ffd45c}#toast{position:absolute;top:22%;left:50%;transform:translateX(-50%);background:#ffc928;color:#19202a;border-radius:30px;padding:10px 18px;font-weight:900;opacity:0;transition:opacity .2s;text-align:center;max-width:85vw}
+#help{position:absolute;bottom:14px;left:14px;font-size:12px;color:#d1e8ef}
+#interact{position:absolute;bottom:24px;right:24px;pointer-events:auto;background:#ffca28;border:0;border-radius:16px;padding:16px 20px;font-weight:1000;color:#1c2630;font-size:15px}
+#joystick{position:absolute;bottom:25px;left:22px;width:116px;height:116px;border-radius:50%;background:#ffffff20;border:2px solid #ffffff55;pointer-events:auto;touch-action:none}
+#knob{position:absolute;width:48px;height:48px;left:32px;top:32px;border-radius:50%;background:#fff9;box-shadow:0 3px 15px #0005}
+#run{position:absolute;bottom:42px;right:150px;pointer-events:auto;border:1px solid #fff7;background:#102638bb;color:white;border-radius:50%;width:68px;height:68px;font-weight:900}
+#start{position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(#071522b8,#071522ed);z-index:5;padding:20px}
+#start .card{max-width:480px;text-align:center;background:#0c2639ed;border:1px solid #63dfff66;border-radius:24px;padding:28px;box-shadow:0 20px 70px #0009}
+h1{font-size:clamp(32px,7vw,56px);margin:0;line-height:1}h1 span{color:#52e3ff}
+#start p{color:#c5dce6;line-height:1.55}button{cursor:pointer}#play{border:0;border-radius:14px;background:linear-gradient(120deg,#49dcff,#6dffc1);padding:14px 25px;font-size:16px;font-weight:1000;color:#08202a}
+#pa{position:absolute;bottom:92px;left:50%;transform:translateX(-50%);width:min(640px,92vw);text-align:center;background:#06233bf2;border:1px solid #ffd45c99;border-radius:14px;padding:10px 16px;font-weight:800;font-size:14px;opacity:0;transition:opacity .3s}#pa span{color:#ffd45c;font-weight:600}
+@media(min-width:800px){#help{font-size:13px}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+ <div id="brand" class="panel">🏙️ DILLI<span>VERSE</span> <small style="font-size:10px;color:#a9c7d6">3D</small></div>
+ <div id="stats"><div class="panel">🪙 <span id="coins">0</span></div><div class="panel">⭐ <span id="rep">0</span></div><div class="panel">📍 <span id="area">JANAKPURI</span></div></div>
+ <div id="mission" class="panel"><b>MOHALLA MISSION</b><br><span id="missionText">Chai wale bhaiya se baat karo. Unke paas jaakar INTERACT dabao.</span></div>
+ <div id="toast"></div><div id="pa"></div>
+ <div id="help" class="panel">PC: WASD move · Shift sprint · Space jump · E interact / board metro · Drag to rotate camera · NPCs/buildings block your path</div>
+ <div id="joystick"><div id="knob"></div></div><button id="run">RUN</button><button id="interact">E · INTERACT</button>
+</div>
+<div id="start"><div class="card"><div style="font-size:46px">🏙️🚇</div><h1>DILLI<span>VERSE</span></h1><p>A tiny 3D Delhi open-world playground. Explore the streets, meet the locals, collect coins and complete your first mohalla mission.</p><p><b>WASD</b> move · <b>Shift</b> sprint · <b>Space</b> jump · <b>E</b> interact</p><button id="play">ENTER DELHI 🚀</button></div></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+const host=document.querySelector('#game');
+const scene=new THREE.Scene();{let c=document.createElement('canvas');c.width=2;c.height=256;let g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,256);gr.addColorStop(0,'#4f9fd6');gr.addColorStop(.55,'#9ed3ec');gr.addColorStop(1,'#f3dcb8');g.fillStyle=gr;g.fillRect(0,0,2,256);let t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;scene.background=t}scene.fog=new THREE.Fog(0xe3dccb,90,300);
+const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.1,600);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;host.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xd8f3ff,0x66513e,2));
+const sun=new THREE.DirectionalLight(0xffedcf,3.2);sun.position.set(-35,65,30);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-100;sun.shadow.camera.right=100;sun.shadow.camera.top=100;sun.shadow.camera.bottom=-100;scene.add(sun);
+const mat=(color,roughness=.85)=>new THREE.MeshStandardMaterial({color,roughness});
+const solid=[]; const M={road:new THREE.MeshStandardMaterial({map:noiseTex('#343c43',700,5),roughness:.9}),side:mat(0xb7a995),concrete:mat(0xc8c4b9),red:mat(0xc64b36),cream:mat(0xe8d6b6),blue:mat(0x286a91),green:mat(0x37845e),yellow:mat(0xf3bd36),dark:mat(0x253746),glass:new THREE.MeshStandardMaterial({color:0x7dc5dc,roughness:.25,metalness:.15}),skin:mat(0xb9784f),shirt:mat(0xf2b52f),white:mat(0xf1eee6),metal:mat(0x697982,.35)};
+function box(parent,x,y,z,w,h,d,material){let o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
+function cylinder(parent,x,y,z,r1,r2,h,material,seg=16){let o=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg),material);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
+function noiseTex(base,n,rep){let c=document.createElement('canvas');c.width=c.height=128;let g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,128,128);for(let i=0;i<n;i++){g.fillStyle=`rgba(${Math.random()<.5?'0,0,0':'255,255,255'},${Math.random()*.09})`;g.fillRect(Math.random()*128,Math.random()*128,2+Math.random()*4,2+Math.random()*4)}let t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rep,rep);t.colorSpace=THREE.SRGBColorSpace;return t}
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshStandardMaterial({map:noiseTex('#8d9b79',900,70),roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.y=-.08;ground.receiveShadow=true;scene.add(ground);
+// Roads, pavements and lane markings
+box(scene,0,.02,0,18,.12,320,M.road);box(scene,0,.08,-10,26,.16,12,M.side);box(scene,0,.08,18,26,.16,12,M.side);
+for(let z=-155;z<155;z+=13)box(scene,0,.1,z, .22,.03,5,mat(0xe6dfc9));
+for(let s of [-1,1]){box(scene,s*11,.15,0,4,.3,320,M.side);for(let z=-146;z<150;z+=24){if(z>-76&&z<-26)continue;let h=THREE.MathUtils.randFloat(9,21),w=THREE.MathUtils.randFloat(8,13),dep=THREE.MathUtils.randFloat(8,13),x=s*THREE.MathUtils.randFloat(22,39);let col=[0xe4c8a3,0xd4d8c8,0xc5b4a5,0xd4c47d,0xb4c8c6][Math.floor(Math.random()*5)];let b=box(scene,x,h/2,z,w,h,dep,mat(col));solid.push({x,z,rx:w/2+.8,rz:dep/2+.8});box(scene,x,h+0.12,z,w+.2,.25,dep+.2,mat(0x8d5945));for(let yy=2;yy<h-1;yy+=3)for(let xx=-w/2+1;xx<w/2-1;xx+=2.5)box(scene,x+xx,yy,z+dep/2+.02,1.05,1.2,.08,M.glass)}}
+function textSprite(txt){let c=document.createElement('canvas');c.width=512;c.height=128;let g=c.getContext('2d');g.fillStyle='#104b78';g.fillRect(0,0,512,128);g.fillStyle='white';g.font='bold 48px Arial';g.textAlign='center';g.fillText(txt,256,82);let t=new THREE.CanvasTexture(c);let m=new THREE.Mesh(new THREE.PlaneGeometry(17,4),new THREE.MeshBasicMaterial({map:t,transparent:false}));return m}
+// street stalls
+function stall(x,z,label,color){solid.push({x,z,rx:2.8,rz:2.0});let g=new THREE.Group();g.position.set(x,0,z);scene.add(g);box(g,0,1,0,4,1.6,2.2,mat(0x8a4b28));box(g,0,2,0,4.5,.18,2.7,mat(color));for(let xx of [-1.6,1.6])box(g,xx,1.45,0,.18,1.4,.18,M.dark);let board=box(g,0,2.5,-1.05,3.3,.8,.12,M.yellow);let canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;let c=canvas.getContext('2d');c.fillStyle='#ffd43b';c.fillRect(0,0,512,128);c.fillStyle='#19242c';c.font='bold 58px Arial';c.textAlign='center';c.fillText(label,256,82);let tex=new THREE.CanvasTexture(canvas);let mesh=new THREE.Mesh(new THREE.PlaneGeometry(3.3,.8),new THREE.MeshBasicMaterial({map:tex}));mesh.position.set(0,2.5,-.98);g.add(mesh);return g}
+stall(-13,-5,'CHAI ₹10',0x9e3828);stall(13,7,'MOMOS ₹50',0x368c57);stall(-13,35,'DILLI JUICE',0xd7a62c);
+// benches, trees, street lamps
+for(let z=-35;z<85;z+=18){for(let s of [-1,1]){let x=s*15;cylinder(scene,x,2,z,.25,.5,4,mat(0x745239));let crown=new THREE.Mesh(new THREE.SphereGeometry(2.3,12,10),mat(0x367b4c));crown.position.set(x,4.5,z);crown.castShadow=true;scene.add(crown)}}
+for(let z=-45;z<70;z+=22){let x= sgn(z)*9; cylinder(scene,x,3,z,.12,.12,6,M.metal);box(scene,x,6,z,.8,.25,.8,M.yellow)}
+function sgn(z){return z%44<22?1:-1}
+// Character builder
+function person(shirtColor=0xf1b52d,scale=1){
+ let g=new THREE.Group();
+ let torso=new THREE.Mesh(new THREE.CapsuleGeometry(.43,.72,5,10),mat(shirtColor));torso.position.y=1.62;torso.castShadow=true;g.add(torso);
+ let head=new THREE.Mesh(new THREE.SphereGeometry(.34,18,14),M.skin);head.position.y=2.52;head.castShadow=true;g.add(head);
+ let hair=new THREE.Mesh(new THREE.SphereGeometry(.35,14,10,0,Math.PI*2,0,Math.PI*.48),M.dark);hair.position.y=2.69;g.add(hair);
+ const limbs=[];
+ for(let s of [-1,1]){
+   let leg=new THREE.Group();leg.position.set(s*.2,.98,0);
+   let legMesh=cylinder(leg,0,-.43,0,.13,.16,.86,M.blue);leg.add(legMesh);
+   let foot=box(leg,0,-.88,.13,.3,.15,.46,mat(0xeeeeea));g.add(leg);limbs.push({part:leg,side:s,type:'leg'});
+   let arm=new THREE.Group();arm.position.set(s*.49,1.94,0);
+   let armMesh=cylinder(arm,0,-.35,0,.105,.13,.72,M.skin);arm.add(armMesh);g.add(arm);limbs.push({part:arm,side:s,type:'arm'});
+ }
+ g.userData.limbs=limbs;g.userData.walkPhase=Math.random()*6;g.userData.torso=torso;return g;
+}
+const player=person(0xe6ad25);player.position.set(0,0,23);scene.add(player);
+const npcs=[];function npc(x,z,color,name,line){let p=person(color);p.position.set(x,0,z);scene.add(p);npcs.push({p,name,line,baseX:x,baseZ:z,phase:Math.random()*6,walk:Math.random()>.35,heading:Math.random()*Math.PI*2})}
+npc(-7,8,0x29a879,'Chai wala','Bhai chai piyega? ₹10 ki kadak chai hai!');npc(7,-8,0xe36c45,'Metro uncle','Gate band hone wala hai, jaldi kar!');npc(4,30,0x9a74cb,'Reel creator','Ek reel bana de bhai, viral karni hai!');npc(-5,-38,0x4a91c5,'Guard','Metro station ke andar line se jaana.');
+npc(-4,86,0x368c57,'Bus conductor','Kashmere Gate? Platform 3 se milegi bus!');
+npc(11,-99,0xe0a42b,'Samosa wala','Garam samose! ₹15 ke do! Line idhar hai bhai!');
+
+// ===== DELHI METRO: elevated Blue-line viaduct, 2 stations, working shuttle train, DMRC-style PA =====
+const TOP=8.6,TZ=-61.5,ST=[{cx:0,name:'Janakpuri West',hi:'जनकपुरी वेस्ट'},{cx:100,name:'Janakpuri East',hi:'जनकपुरी ईस्ट'}];
+const MT={train:new THREE.MeshStandardMaterial({color:0xe9eef2,roughness:.35,metalness:.3,side:THREE.DoubleSide}),blue:mat(0x1d5fa8,.4),rail:mat(0x8a8f94,.4),panel:mat(0x3f78b5,.4),lamp:new THREE.MeshBasicMaterial({color:0xfff6cf})};
+box(scene,0,TOP-.6,TZ,262,1.2,5,M.dark);
+for(let dz of[-.8,.8])box(scene,0,TOP+.08,TZ+dz,262,.1,.1,MT.rail);
+for(let x=-128;x<=128;x+=16){if(ST.some(q=>Math.abs(x-q.cx)<22))continue;cylinder(scene,x,TOP/2-.6,TZ,.7,.9,TOP-1.2,M.concrete);solid.push({x,z:TZ,rx:1.4,rz:1.4})}
+const RL=Math.hypot(19,TOP),RA=Math.atan2(TOP,19);
+for(const q of ST){
+ box(scene,q.cx,TOP-.6,-57,42,1.2,16,M.dark);
+ box(scene,q.cx,TOP+.03,-59.1,42,.05,.4,M.yellow);
+ box(scene,q.cx,TOP+5.5,-54.5,42,.4,13,M.blue);box(scene,q.cx,TOP+5.8,-54.5,42,.2,13.4,M.yellow);
+ for(let x of[-19,-7,5,19]){box(scene,q.cx+x,TOP+2.7,-49.8,.5,5.4,.5,M.metal)}
+ box(scene,q.cx-4.5,TOP+1.6,-48.7,33,3.2,.15,M.glass);box(scene,q.cx+18.5,TOP+1.6,-48.7,5,3.2,.15,M.glass);
+ for(let x of[-14,-2,10])box(scene,q.cx+x,TOP+.5,-50.4,3.6,.14,.9,mat(0x7a5a3a));
+ for(let x of[-19,-11,11,19]){cylinder(scene,q.cx+x,TOP/2-.6,TZ,.8,1,TOP-1.2,M.concrete);solid.push({x:q.cx+x,z:TZ,rx:1.6,rz:1.6})}
+ let sg=textSprite(q.name.toUpperCase()+'  •  DELHI METRO');sg.position.set(q.cx,TOP+7.4,-47.4);scene.add(sg);
+ let rp=box(scene,q.cx+14,TOP/2,-39.5,4,.5,RL,mat(0x9a948a));rp.rotation.x=RA;
+ for(let sx of[-2,2]){let r=box(scene,q.cx+14+sx,TOP/2+.9,-39.5,.1,.1,RL,M.metal);r.rotation.x=RA}
+ let ey=textSprite('METRO ENTRY ↑');ey.scale.set(.45,.45,1);ey.position.set(q.cx+14,4.8,-27);scene.add(ey);
+ for(let k=0;k<3;k++){npc(q.cx-10+k*7,-54,[0x4a91c5,0xc4553b,0x7c5b9a][k],'Passenger',['Peeli line ke peeche raho bhai!','Train aa rahi hai, gap ka dhyan rakhna.','Pehle utarne do, phir chadho!'][k]);let n=npcs[npcs.length-1];n.p.position.y=TOP;n.rx=3;n.rz=1.2}
+}
+const train=new THREE.Group();train.position.set(0,TOP,TZ);scene.add(train);const doors=[];
+for(let c of[-6.6,6.6]){
+ box(train,c,1.7,0,12.4,3.2,3.1,MT.train).castShadow=false;box(train,c,1.1,0,12.45,.3,3.15,MT.blue);box(train,c,3.25,0,12.45,.1,3.15,MT.blue);
+ for(let dx of[-5.4,-1.8,1.8,5.4])for(let sd of[-1,1])box(train,c+dx,2.3,sd*1.56,1.5,.85,.05,M.glass);
+ for(let dx of[-3.6,0,3.6]){box(train,c+dx,1.75,1.57,1.3,2.3,.04,mat(0x0b1118));let d=box(train,c+dx,1.75,1.6,1.25,2.3,.06,MT.panel);doors.push({m:d,x0:c+dx,dir:dx<0?-1:1});box(train,c+dx,1.75,-1.57,1.3,2.3,.06,MT.panel)}
+ for(let sd of[-1,1])box(train,c,.7,sd*1.2,10.6,.45,.5,mat(0x2a63ad));
+ let L=new THREE.PointLight(0xfff3d6,22,15);L.position.set(c,3,0);train.add(L);
+}
+for(let e of[-13,13]){box(train,e,1.7,0,.3,3.2,3.1,M.yellow);box(train,e+Math.sign(e)*.18,1.2,.9,.1,.3,.5,MT.lamp);box(train,e+Math.sign(e)*.18,1.2,-.9,.1,.3,.5,MT.lamp)}
+const T={st:0,state:'dwell',t:0,dir:1,v:0,open:0,tgt:0,f:{},riding:false,off:0,zo:0};
+let paTimer=0,AC;
+function tone(f,t,d,v=.2){try{AC=AC||new AudioContext();const o=AC.createOscillator(),g=AC.createGain(),s0=AC.currentTime+t;o.frequency.value=f;g.gain.setValueAtTime(.0001,s0);g.gain.exponentialRampToValueAtTime(v,s0+.02);g.gain.exponentialRampToValueAtTime(.0001,s0+d);o.connect(g);g.connect(AC.destination);o.start(s0);o.stop(s0+d+.05)}catch(e){}}
+const beeps=()=>[0,.35,.7].forEach(t=>tone(1500,t,.15,.12));
+function pa(en,hi){const el=document.querySelector('#pa');el.innerHTML='🔔 '+en+'<br><span>'+hi+'</span>';el.style.opacity=1;paTimer=8;tone(659,0,.6);tone(523,.3,.7);
+ if(!window.speechSynthesis)return;speechSynthesis.cancel();const vs=speechSynthesis.getVoices();
+ setTimeout(()=>{for(const[txt,lang]of[[en,'en-IN'],[hi,'hi-IN']]){const u=new SpeechSynthesisUtterance(txt);u.lang=lang;u.rate=.92;const v=vs.find(v=>v.lang.replace('_','-')===lang)||vs.find(v=>v.lang.startsWith(lang.slice(0,2)));if(v)u.voice=v;speechSynthesis.speak(u)}},750)}
+const onPlat=i=>!T.riding&&player.position.y>4.5&&Math.abs(player.position.x-ST[i].cx)<30;
+function updateMetro(dt){
+ const cur=ST[T.st],nx=ST[1-T.st],east=T.st===0,dest=east?['Noida Electronic City','नोएडा इलेक्ट्रॉनिक सिटी']:['Dwarka Sector 21','द्वारका सेक्टर 21'];
+ if(T.state==='dwell'){T.t+=dt;
+  if(T.t>.5&&!T.f.o){T.f.o=1;T.tgt=1;if(onPlat(T.st))pa('Please mind the gap. Let passengers alight first.','कृपया गाड़ी और प्लेटफ़ॉर्म के बीच की दूरी का ध्यान रखें। पहले यात्रियों को उतरने दें।');if(T.riding)pa(`This is ${cur.name}. Please mind the gap while alighting and take all your belongings.`,`यह ${cur.hi} स्टेशन है। उतरते समय गैप का ध्यान रखें और अपना सामान साथ ले जाएँ।`)}
+  if(T.t>14&&!T.f.c){T.f.c=1;T.tgt=0;if(onPlat(T.st)||T.riding){beeps();pa('Doors are closing. Please stand clear of the doors.','दरवाज़े बंद हो रहे हैं। कृपया दरवाज़ों से दूर रहें।')}}
+  if(T.t>17.5&&T.open<.03){T.state='run';T.dir=east?1:-1;T.v=0;T.f={};if(T.riding)pa(`This train is for ${dest[0]}. The next station is ${nx.name}. Doors will open on the ${east?'right':'left'} side.`,`यह गाड़ी ${dest[1]} जा रही है। अगला स्टेशन ${nx.hi} है। दरवाज़े ${east?'दाईं':'बाईं'} ओर खुलेंगे।`)}
+ }else{
+  const d=Math.abs(nx.cx-train.position.x);T.v=Math.min(22,T.v+5*dt,Math.sqrt(2*3.5*d)+.5);train.position.x+=T.dir*T.v*dt;
+  if(!T.f.a&&d<60){T.f.a=1;if(onPlat(1-T.st))pa(`Attention please. The train for ${dest[0]} is arriving on platform number 1. Please stand behind the yellow line.`,`कृपया ध्यान दें। ${dest[1]} जाने वाली गाड़ी प्लेटफ़ॉर्म संख्या एक पर आ रही है। कृपया पीली रेखा के पीछे रहें।`)}
+  if(d<.06){train.position.x=nx.cx;T.state='dwell';T.st=1-T.st;T.t=0;T.f={};T.v=0}
+ }
+ T.open+=(T.tgt-T.open)*Math.min(1,dt*1.8);doors.forEach(q=>q.m.position.x=q.x0+q.dir*T.open*1.15);
+}
+const canBoard=()=>!T.riding&&T.state==='dwell'&&T.open>.8&&player.position.y>4.5&&Math.abs(player.position.x-train.position.x)<14&&player.position.z<-52;
+function metroInteract(){
+ if(T.riding){if(T.state==='dwell'&&T.open>.8){T.riding=false;gy=TOP;player.position.set(THREE.MathUtils.clamp(train.position.x+T.off,ST[T.st].cx-19,ST[T.st].cx+19),TOP,-57.5);toast('Metro se utar gaye! 🚇 +10 rep');rep+=10;updateHud();document.querySelector('#missionText').textContent='Metro ride complete! Ab Jantar Mantar ya bus adda explore karo.'}else toast('Station aane par darwaze khulenge. Please wait! 🚇');return true}
+ if(canBoard()){T.riding=true;T.off=THREE.MathUtils.clamp(player.position.x-train.position.x,-10,10);T.zo=0;toast('Metro mein chadh gaye! Agle station par E dabake utro 🚇');return true}
+ return false}
+// Moving traffic (cars, taxis, buses) that yield to the player
+const cars=[];
+function vehicle(lane,z,col,bus){const g=new THREE.Group(),L=bus?8.6:4.2;scene.add(g);box(g,0,bus?1.6:.85,0,bus?3:1.9,bus?2.6:1,L,mat(col));if(!bus)box(g,0,1.65,-.1,1.7,.7,L*.55,M.glass);else for(let zz=-3;zz<=3;zz+=1.5)for(let sd of[-1,1])box(g,sd*1.51,2,zz,.05,.8,1,M.glass);
+ for(let sd of[-1,1])for(let zz of[-L/2+.9,L/2-.9]){let w=cylinder(g,sd*.95,.4,zz,.4,.4,.25,mat(0x17191c));w.rotation.z=Math.PI/2}
+ box(g,.6,.85,L/2+.02,.4,.2,.05,MT.lamp);box(g,-.6,.85,L/2+.02,.4,.2,.05,MT.lamp);
+ const o={g,x:lane*3.6,z,dir:lane>0?1:-1,v:7,L,sol:{x:0,z:0,rx:1.5,rz:L/2+.5}};solid.push(o.sol);g.rotation.y=lane>0?0:Math.PI;cars.push(o)}
+[0xe8e8e8,0xc0392b,0x2c3e50,0xf1c40f,0x16a085,0xd35400,0x286a91,0xe0a42b].forEach((c,i)=>vehicle(i%2?1:-1,-140+Math.floor(i/2)*75+(i%2)*30,c,i%4===3));
+function updateTraffic(dt){for(const c of cars){let stop=false;const ahead=(z)=>(z-c.z)*c.dir;
+  if(Math.abs(player.position.x-c.x)<2.4&&player.position.y<3){let a=ahead(player.position.z);if(a>0&&a<c.L/2+6)stop=true}
+  for(const o of cars)if(o!==c&&o.dir===c.dir){let a=ahead(o.z);if(a>0&&a<c.L/2+o.L/2+4)stop=true}
+  c.v+=((stop?0:7.5)-c.v)*Math.min(1,dt*2.5);c.z+=c.dir*c.v*dt;if(c.z>155)c.z=-155;if(c.z<-155)c.z=155;
+  c.g.position.set(c.x,0,c.z);c.sol.x=c.x;c.sol.z=c.z}}
+// drifting clouds
+const clouds=[];for(let i=0;i<14;i++){let c=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.8,fog:false}));c.scale.set(14+Math.random()*14,3+Math.random()*2,7+Math.random()*5);c.position.set(Math.random()*400-200,70+Math.random()*25,Math.random()*300-150);scene.add(c);clouds.push(c)}
+// ISBT-style Delhi bus station at the far end of the playable road.
+box(scene,0,.18,91,35,.35,19,mat(0x777e80));
+box(scene,0,5,100,38,9,1.2,mat(0xd9d3c5));
+box(scene,0,9,100,39,.55,1.6,mat(0xc74b3c));
+const busSign=textSprite('DELHI BUS ADDDA  •  PLATFORM 1–6');busSign.position.set(0,8.4,99.35);busSign.scale.set(1.8,1,1);scene.add(busSign);
+for(let x of [-13,-6,6,13]){box(scene,x,1.8,90,.25,3.6,.25,M.metal);box(scene,x,3.7,90,7,.18,.25,M.yellow)}
+// Parked buses in the terminal bays.
+function parkedBus(x,z,color){let g=new THREE.Group();g.position.set(x,0,z);scene.add(g);box(g,0,1.5,0,3.3,2.4,8.8,mat(color));box(g,0,2.1,0,3.32,.38,8.85,mat(0xc73a36));for(let zz=-3.2;zz<=3.2;zz+=1.55)for(let s of [-1,1])box(g,s*1.66,1.7,zz,.05,.75,1.05,M.glass);for(let s of [-1,1])for(let zz of [-2.8,2.8]){let w=cylinder(g,s*1.68,.45,zz,.48,.48,.22,mat(0x17191c));w.rotation.z=Math.PI/2}}
+parkedBus(-8,88,0x286a91);parkedBus(8,88,0xe6dfd0);
+// Jantar Mantar-inspired public plaza and monumental observatory forms.
+const plaza=new THREE.Mesh(new THREE.CircleGeometry(19,48),mat(0xb9a88f));plaza.rotation.x=-Math.PI/2;plaza.position.set(0,.05,-91);plaza.receiveShadow=true;scene.add(plaza);
+cylinder(scene,0,.3,-91,14,14,.45,mat(0xd8c5a5),48);
+for(let i=0;i<8;i++){let a=i*Math.PI/4,x=Math.sin(a)*8,z=-91+Math.cos(a)*8;box(scene,x,2,z,1.1,4,1.1,mat(0xd65b39));}
+let observatory=new THREE.Group();observatory.position.set(-5,0,-91);scene.add(observatory);
+box(observatory,0,2.8,0,12,1.1,5,mat(0xd76a45));box(observatory,0,1.5,0,8,3,3.8,mat(0xe6a16c));box(observatory,0,4.2,0,5,.35,2.8,mat(0xf0c18a));
+const jm=textSprite('JANTAR MANTAR • DELHI');jm.position.set(0,8,-91);jm.scale.set(1.35,.65,1);scene.add(jm);
+// Peaceful fictional civic demonstration: crowd, placards, police cordon and buses.
+for(let i=0;i<9;i++){let x=-10+(i%5)*5,z=-76+Math.floor(i/5)*5;let personMesh=person([0x2b6b9a,0x9c4d45,0x4d805b,0x8a6ca8][i%4]);personMesh.position.set(x,0,z);scene.add(personMesh);npcs.push({p:personMesh,name:'Protester',line:'Shanti se apni baat rakho!',baseX:x,baseZ:z,phase:Math.random()*6,walk:true,heading:0,protest:true});}
+for(let i=0;i<4;i++){let x=-7+i*4;let cop=person(0x263d59);cop.position.set(x,0,-68);scene.add(cop);box(scene,x,1.7,-68,.9,.65,.5,mat(0x263d59));}
+for(let x of [-11,-5,1,7,13]){let b=box(scene,x,.65,-67,4,.95,.35,mat(0x28708b));solid.push({x,z:-67,rx:2.1,rz:.55});}
+const protestSign=textSprite('PEACEFUL PUBLIC PROTEST');protestSign.position.set(0,5,-72);protestSign.scale.set(1.25,.55,1);scene.add(protestSign);
+// Samosa stall and an orderly queue beside the observatory.
+stall(13,-93,'SAMOSA ₹15',0xe0a42b);
+for(let i=0;i<4;i++){let q=person([0x2e7d61,0x7c5b9a,0x326c91,0xb65d43][i]);q.position.set(16+i*1.35,0,-88-i*1.1);scene.add(q);npcs.push({p:q,name:'Samosa queue',line:'Bhai line mein lag, sabko milega!',baseX:16+i*1.35,baseZ:-88-i*1.1,phase:i,walk:false,heading:0});}
+
+
+// Auto rickshaw
+solid.push({x:5,z:44,rx:2.5,rz:2.7});const auto=new THREE.Group();auto.position.set(5,0,44);scene.add(auto);box(auto,0,1.1,0,3.3,1.4,4,mat(0x15945b));box(auto,0,2,0,3.1,.55,3.7,M.dark);box(auto,0,1.4,-2.03,2.2,.85,.1,M.glass);for(let x of [-1.25,1.25])for(let z of [-1.3,1.3]){let wh=cylinder(auto,x,.55,z,.48,.48,.28,mat(0x17191c),16);wh.rotation.z=Math.PI/2}
+// coins
+const coinMat=new THREE.MeshStandardMaterial({color:0xffd447,metalness:.7,roughness:.25,emissive:0x6b4300});const coins=[];for(let i=0;i<12;i++){let c=new THREE.Mesh(new THREE.TorusGeometry(.48,.13,8,20),coinMat);c.position.set((i%3-1)*5,1.1, -25+Math.floor(i/3)*18);c.rotation.x=Math.PI/2;scene.add(c);coins.push(c)}
+let keys={},joy={x:0,y:0},coinsCount=0,rep=0,missionDone=false,toastTimer=0,near=null,camYaw=0,camDist=8,drag=false,lastX=0;
+function toast(t){let e=document.querySelector('#toast');e.textContent=t;e.style.opacity=1;toastTimer=2.4}
+function updateHud(){document.querySelector('#coins').textContent=coinsCount;document.querySelector('#rep').textContent=rep}
+const clock=new THREE.Clock();let jv=0,jh=0,gy=0;let protestTriggered=false;
+function interact(){if(metroInteract())return;if(!near){toast('Thoda paas jao, bhai!');return}if(near.name==='Chai wala'){coinsCount+=1;rep+=10;toast('Kadak chai mil gayi! +10 reputation ☕');}else if(near.name==='Metro uncle'){rep+=5;toast('Metro uncle: Mind the gap, bhai! +5 rep 🚇')}else if(near.name==='Reel creator'){coinsCount+=2;rep+=15;toast('Reel viral! +2 coins, +15 rep 📱')}else if(near.name==='Samosa wala'){if(coinsCount>=2){coinsCount-=2;rep+=20;toast('2 garam samose mil gaye! Chutney extra 😋');}else toast('Samosa ₹15 ka hai bhai — pehle coins kama!');}else if(near.name==='Bus conductor'){rep+=5;toast('Conductor: Platform 3! Jaldi chalo, bus nikal rahi hai 🚌');}else if(near.name==='Protester'){rep+=2;toast('Protester: Shanti se awaaz uthao, bhai. ✊');}else if(near.name==='Samosa queue'){toast('Line mein lag jao bhai, token leke aao!');}else{rep+=5;toast(near.name+': '+near.line+' +5 rep')};updateHud();if(!missionDone){missionDone=true;document.querySelector('#missionText').textContent='First mission complete! Explore Delhi, collect floating coins and meet the locals.';toast('MISSION COMPLETE! Mohalla legend unlocked 🏆')}}
+document.querySelector('#interact').onclick=interact;
+document.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')interact();if(e.code==='Space'&&jh===0&&!T.riding){jv=7;jh=.001}});document.addEventListener('keyup',e=>keys[e.code]=false);
+const joyEl=document.querySelector('#joystick'),knob=document.querySelector('#knob');let joyActive=false;
+joyEl.addEventListener('pointerdown',e=>{joyActive=true;joyEl.setPointerCapture(e.pointerId);moveJoy(e)});joyEl.addEventListener('pointermove',e=>{if(joyActive)moveJoy(e)});['pointerup','pointercancel'].forEach(ev=>joyEl.addEventListener(ev,()=>{joyActive=false;joy.x=joy.y=0;knob.style.transform='translate(0,0)'}));
+function moveJoy(e){let r=joyEl.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),len=Math.hypot(dx,dy),m=Math.min(38,len);joy.x=len?dx/len*m/38:0;joy.y=len?dy/len*m/38:0;knob.style.transform=`translate(${joy.x*38}px,${joy.y*38}px)`}
+let sprint=false;document.querySelector('#run').onpointerdown=()=>sprint=true;document.querySelector('#run').onpointerup=()=>sprint=false;
+renderer.domElement.addEventListener('pointerdown',e=>{if(e.clientY<innerHeight*.72){drag=true;lastX=e.clientX}});window.addEventListener('pointerup',()=>drag=false);window.addEventListener('pointermove',e=>{if(drag){camYaw-=(e.clientX-lastX)*.006;lastX=e.clientX}});
+function turn(p,target,dt){let d=Math.atan2(Math.sin(target-p.rotation.y),Math.cos(target-p.rotation.y));p.rotation.y+=d*Math.min(1,dt*9)}
+function animateRig(p,sp,dt){const u=p.userData;u.ph=(u.ph||0)+dt*(3+sp*1.35);const k=Math.min(1,sp/2.2),sw=Math.sin(u.ph)*.75*k;
+ for(const l of u.limbs){l.part.rotation.x=l.type==='leg'?sw*l.side:-sw*l.side*.8;if(l.type==='arm')l.part.rotation.z=l.side*(.07+.03*Math.sin(u.ph*.4+u.walkPhase))}
+ u.torso.position.y=1.62+Math.abs(Math.cos(u.ph))*.05*k+Math.sin(performance.now()*.002+u.walkPhase)*.012*(1-k);u.torso.rotation.x=.1*k;u.torso.rotation.z=Math.sin(u.ph)*.04*k}
+function gh(x,z,y){for(const q of ST)if(Math.abs(x-q.cx-14)<2.1&&z<-30&&z>=-49)return TOP*(-30-z)/19;if(y>4.5){for(const q of ST)if(Math.abs(x-q.cx)<20.5&&z>-59.5&&z<-48.9)return TOP;return null}return 0}
+function loop(){requestAnimationFrame(loop);let dt=Math.min(clock.getDelta(),.04);updateMetro(dt);updateTraffic(dt);clouds.forEach(c=>{c.position.x+=dt*1.5;if(c.position.x>220)c.position.x=-220});let f=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)-joy.y;let side=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;let dir=new THREE.Vector3(side,0,-f);if(dir.length()>1)dir.normalize();let speed=(sprint||keys.ShiftLeft?10:5.5);dir.applyAxisAngle(new THREE.Vector3(0,1,0),camYaw);
+ // Resolve movement axis-by-axis so the player slides along walls instead of clipping through them.
+ if(T.riding){T.off=THREE.MathUtils.clamp(T.off+dir.x*speed*dt,-11.5,11.5);T.zo=THREE.MathUtils.clamp(T.zo+dir.z*speed*dt,-.9,.9);player.position.set(train.position.x+T.off,TOP+.1,TZ+T.zo);gy=TOP+.1;jh=0}
+ else{let nx=THREE.MathUtils.clamp(player.position.x+dir.x*speed*dt,-125,125),nz=THREE.MathUtils.clamp(player.position.z+dir.z*speed*dt,-148,148);
+ const walk=(x,z)=>{if(gy<4.5&&solid.some(o=>Math.abs(x-o.x)<o.rx&&Math.abs(z-o.z)<o.rz))return false;const h=gh(x,z,gy);return h!==null&&Math.abs(h-gy)<1.2};
+ if(walk(nx,player.position.z))player.position.x=nx;if(walk(player.position.x,nz))player.position.z=nz;
+ let h=gh(player.position.x,player.position.z,gy);if(h!==null)gy=h;}
+ // People are solid, friendly obstacles: stop at a respectful distance, never walk through them.
+ for(const n of npcs){if(T.riding||Math.abs(n.p.position.y-gy)>3)continue;let dx=player.position.x-n.p.position.x,dz=player.position.z-n.p.position.z,d=Math.hypot(dx,dz),minD=1.25;if(d<minD&&d>.001){player.position.x=n.p.position.x+dx/d*minD;player.position.z=n.p.position.z+dz/d*minD;}}
+ if(dir.lengthSq()>.01)turn(player,Math.atan2(dir.x,dir.z),dt);
+ if(jh>0){jv-=18*dt;jh+=jv*dt;if(jh<=0){jh=0;jv=0}}player.position.y=gy+jh;
+ 
+ if(!protestTriggered&&player.position.z<-60){protestTriggered=true;npcs.filter(n=>n.protest).forEach(n=>{n.disperseAt=performance.now()*.001;n.walk=true});toast('Jantar Mantar par protest march! Barricades ke paas bheed disperse ho rahi hai. 🚧');document.querySelector('#missionText').textContent='Jantar Mantar ke paas peaceful protest scene dekho, phir samosa stall par line mein lagkar snack lo.';}
+ near=null;let min=4.5;
+ const nowS=performance.now()*.001;
+ npcs.forEach(n=>{
+   let t=nowS+n.phase,px=n.p.position.x,pz=n.p.position.z,X,Z;
+   if(n.protest&&protestTriggered){let e=nowS-n.disperseAt;X=n.baseX+(n.baseX<0?-1:1)*Math.min(8,e*1.7);Z=n.baseZ+Math.max(0,e)*1.25}
+   else if(n.walk){X=n.baseX+Math.sin(t*.42)*(n.rx||(n.protest?.7:2.6));Z=n.baseZ+Math.cos(t*.31)*(n.rz||(n.protest?.5:1.6))}
+   else{X=n.baseX;Z=n.baseZ}
+   n.p.position.x=X;n.p.position.z=Z;
+   let vx=(X-px)/Math.max(dt,.001),vz=(Z-pz)/Math.max(dt,.001),sp=Math.min(Math.hypot(vx,vz),6);n.sp=(n.sp||0)+(sp-(n.sp||0))*Math.min(1,dt*8);
+   if(sp>.3)turn(n.p,Math.atan2(vx,vz),dt);else if(Math.abs(n.p.position.y-gy)<3&&Math.hypot(player.position.x-X,player.position.z-Z)<6)turn(n.p,Math.atan2(player.position.x-X,player.position.z-Z),dt);
+   animateRig(n.p,n.sp,dt);
+   let d=player.position.distanceTo(n.p.position);if(d<min){min=d;near=n}
+ });
+ animateRig(player,dir.lengthSq()>.01?speed*Math.min(1,dir.length()):0,dt);if(jh>0)for(const l of player.userData.limbs)if(l.type==='arm')l.part.rotation.x=-2.5;
+ coins.forEach((c,i)=>{c.rotation.z+=dt*1.8;c.position.y=1.1+Math.sin(performance.now()*.002+i)*.2;if(c.visible&&player.position.distanceTo(c.position)<1.5){c.visible=false;coinsCount++;rep+=2;updateHud();toast('+1 coin! Delhi ki economy strong 💸')}});
+ if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)document.querySelector('#toast').style.opacity=0}
+ let rd=T.riding,target=new THREE.Vector3(player.position.x,player.position.y+(rd?1.7:2.3),player.position.z),cd=rd?2.8:camDist;let offset=new THREE.Vector3(Math.sin(camYaw)*cd,rd?.3:4.4,Math.cos(camYaw)*cd);
+ if(rd){camera.position.copy(target).add(offset);camera.position.z=THREE.MathUtils.clamp(camera.position.z,TZ-1.4,TZ+1.4);camera.position.x=THREE.MathUtils.clamp(camera.position.x,train.position.x-12,train.position.x+12)}else camera.position.lerp(target.clone().add(offset),1-Math.pow(.001,dt));camera.lookAt(target);
+ if(paTimer>0){paTimer-=dt;if(paTimer<=0)document.querySelector('#pa').style.opacity=0}
+ {const z=player.position.z,x=player.position.x;document.querySelector('#area').textContent=T.riding?'🚇 DELHI METRO':player.position.y>4.5?(Math.abs(x-ST[1].cx)<30?'JANAKPURI EAST METRO':'JANAKPURI WEST METRO'):x>70?'JANAKPURI EAST':z>75?'DELHI BUS ADDDA':z<-60?'JANTAR MANTAR':z<-25?'JANAKPURI METRO':'JANAKPURI'}
+ document.querySelector('#interact').textContent=T.riding?'E · GET OFF':canBoard()?'E · BOARD METRO':near?'E · '+near.name.toUpperCase():'E · INTERACT';
+ renderer.render(scene,camera)}
+loop();
+document.querySelector('#play').onclick=()=>document.querySelector('#start').style.display='none';
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script>
+</body></html>
